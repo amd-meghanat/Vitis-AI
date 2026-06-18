@@ -52,17 +52,11 @@ Before starting Docker, adjust the access permissions of the working directories
 chmod -R a+w <path/to/yolov8m>
 ```
 
-Load the docker image: 
+Pull the docker image: 
 
 ```
-docker load -i <docker_image_file>.tgz
+docker pull amdih/vitis-ai:versal-2ve-release_v6.2_0612
 ```
-
-Run `docker images` to verify docker REPOSITORY, IMAGEID and TAG information. 
-
-|REPOSITORY          | TAG                            | IMAGE ID          | CREATED       | SIZE   |
-|--------------------|--------------------------------|-------------------|---------------|--------|
-|amdih/vitis-ai      |versal-2ve-release_v6.2_0612    |  8cd54102c274     |  xx hours ago | 31.2GB |
 
 Start the docker: 
 
