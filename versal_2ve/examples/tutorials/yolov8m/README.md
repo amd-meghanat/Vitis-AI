@@ -1,7 +1,7 @@
 # YOLOv8m Object Detection: Quantization to Deployment
 
 This tutorial outlines the essential steps for deploying the YOLOv8m model on AMD Versal AI Edge Series Gen 2 VEK385 Evaluation Kit
-using Vitis AI 6.2, while leveraging the mixed-precision capabilities of the Vitis AI compiler.
+using Vitis AI, while leveraging the mixed-precision capabilities of the Vitis AI compiler.
 The process begins with using AMD Quark to quantize the model into an INT8 format, employing the 
 VINT8 configuration. During the compilation phase, the Vitis AI compiler automatically converts 
 the FP32 tail section of the ONNX model to BF16. This conversion is crucial as it ensures that the 
@@ -14,7 +14,7 @@ for ONNX Runtime, ensuring robust and seamless operation on the VEK385 evaluatio
 
 This tutorial requires:
 
-* Vitis AI 6.2 Docker for Versal AI Edge Series Gen 2:
+* Vitis AI Docker for Versal AI Edge Series Gen 2:
     * Instructions for installation and startup are in the Vitis AI User Guide for Versal AI Edge Series Gen 2.
 * VEK385 evaluation kit (see above):
     * Setup instructions are available in the Vitis AI User Guide for Versal AI Edge Series Gen 2.
@@ -31,7 +31,7 @@ You will:
 - Download YOLOv8m model from Ultralytics and export it to ONNX (Optset 17)
 - Quantize the model to `VINT8` using AMD Quark Quantization API. 
 - Compile and Run Inference on VEK385 NPU using AMD Vitis AI Execution Provider
-- Acheive maximum operator offloading on VEK385 NPU 
+- Achieve maximum operator offloading on VEK385 NPU 
 - Analyse NPU Inference time for model performance
 - Evaluate the model accuracy on VEK385-NPU
 - Deploy compiled model and run end-to-end inference on the VEK385 NPU using Vitis AI Runtime (VART)
@@ -47,26 +47,13 @@ Before starting Docker, adjust the access permissions of the working directories
 chmod -R a+w <path/to/yolov8m>
 ```
 
-Pull the docker image: 
+Refer to the [Vitis AI User Guide for Versal AI Edge Series Gen 2](https://vitisai.docs.amd.com/projects/gen2/en/latest/docs/setup_and_installation/docker-setup.html) to load and start docker:
 
 ```
-docker pull amdih/vitis-ai:versal-2ve-release_v6.2_0612
-```
-
-Run `docker images` to verify docker REPOSITORY, IMAGEID and TAG information. 
-
-|REPOSITORY          | TAG                            | IMAGE ID          | CREATED       | SIZE   |
-|--------------------|--------------------------------|-------------------|---------------|--------|
-|amdih/vitis-ai      |versal-2ve-release_v6.2_0612    |  8cd54102c274     |  xx hours ago | 31.2GB |
-
-Start the docker: 
-
-```
-docker run -it --network host \  
-  -v /path/to/your/license:/usr/licenses \  
-  -v $PWD/yolov8m:/yolov8m \  
-  --rm amdih/vitis-ai:versal-2ve-release_v6.2_0612 \
-   "bash"
+docker run -it --network host \
+  -v /path/to/your/license:/usr/licenses \
+  -v $PWD/yolov8m:/yolov8m \
+  --rm <REPOSITORY>:<TAG> "bash"
 ```
 
 ### Install Required Python Packages
@@ -224,9 +211,8 @@ For compilation summary, see `final-vaiml-pass-summary.txt` inside compiled `cac
 ```
 --------- Final Summary of VAIML Pass ----------
 OS: Linux X64
-VAIP commit: 82e73fd582c8c270490c80d52cd614683e52a7bc
 Model: /yolov8_compile/models/yolov8m_VINT8_skipNodes.onnx
-Model signature: 8af99e1407bdf6b1f6c788c045433855
+Model signature: ......
 Device: ve2
 Model data type: float32 and int8 quantized
 Device data type: bfloat16 and int8
@@ -428,7 +414,7 @@ Once the JSON files are generated, launch AI Analyzer using steps below.
 docker run -it -p 8011:8011 --network host \
   -v /path/to/your/license:/usr/licenses \
   -v $PWD/yolov8m:/yolov8m \
-  --rm amdih/vitis-ai:versal-2ve-release_v6.2_0612 "bash"
+  --rm <REPOSITORY>:<TAG> "bash"
 ```
 - Inside docker:
 
@@ -437,11 +423,11 @@ aianalyzer <model execution path> --port 8011 --no-browser --bind 0.0.0.0
 ```
 - After above step, there will be message like:
 ```
-2025-12-17 06:02:39,809 INFO [client_id=n/a] 140172386235968 server.py:35 AI Analyzer 1.6.0.dev20251005221519+g1ea47349 serving on http://0.0.0.0:8011/dashboard?token=ZYkcJHumcLcVdqGsFKto4Ck7xQIo08I5BhbJMggHIY (Press CTRL+C to quit)
+AI Analyzer serving on http://0.0.0.0:8011/dashboard?token=<token-from-aianalyzer> (Press CTRL+C to quit)
 ```
 - In the host machine, start a browser and type the address from above message:
 ```
-http://0.0.0.0:8011/dashboard?token=ZYkcJHumcLcVdqGsFKto4Ck7xQIo08I5BhbJMggHIY
+http://0.0.0.0:8011/dashboard?token=<token-from-aianalyzer>
 ```
 AI Analyzer GUI looks like below:
 
@@ -509,19 +495,11 @@ Follow the Vitis AI User Guide for Versal AI Edge Series Gen 2 to boot the VEK38
 
 **Copy Overlays**
 
-Copy the overlay files provided as part of the AMD board package:
-
-- Mount the host NFS export on the target:
-
-```bash
-sudo mount -t nfs 10.10.70.101:/exports/root /mnt
-```
-
-- Copy the overlay files into the target overlay directory:
+Copy the overlay files provided as part of the AMD board package onto the target (see the Vitis AI User Guide for Versal AI Edge Series Gen 2 for the package location):
 
 ```bash
 sudo mkdir -p /overlay
-sudo cp -r /mnt/overlay/* /overlay/
+sudo cp -r <path-to-board-package>/overlay/* /overlay/
 ```
 
 **Program PL + AI Engine Overlay**
@@ -607,4 +585,4 @@ This tutorial demonstrated the complete workflow for deploying YOLOv8m object de
 
 The MIT License (MIT)
 
-Copyright (c) 2025 Advanced Micro Devices, Inc. All rights reserved.
+Copyright (c) 2025-2026 Advanced Micro Devices, Inc. All rights reserved.

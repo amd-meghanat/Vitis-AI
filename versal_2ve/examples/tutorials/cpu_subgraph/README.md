@@ -40,7 +40,7 @@ The following items are required before starting the tutorial:
 
 - AMD Versal AI Edge Series Gen 2 **VEK385** evaluation kit with network access.
 - Linux host with Docker and ~20 GB free disk for models, cache, and intermediate files.
-- **Vitis AI 6.2 Docker** image for Versal AI Edge Series Gen 2.
+- **Vitis AI Docker** image for Versal AI Edge Series Gen 2.
 - Network access for one-time downloads (YOLOv7 weights in Step 2, COCO val2017 calibration images in Step 3).
 - **`ml_vart`** binary deployed on VEK385 — either the prebuilt binary from the target image or built from source (`../../cpp_examples/ml_vart/README.md`). `ml_vart` is a C++ inference application built on **VART-ML** that loads the compiled `.rai` cache and runs heterogeneous NPU + CPU inference on VEK385.
 
@@ -56,6 +56,7 @@ The following items are required before starting the tutorial:
 | `prepare_input.py`                 | Convert image to model input binary                                         |
 | `postprocess_bin_output.py`        | Decode VART output → detections + annotated image                           |
 | `inspect_connectivity_metadata.py` | Display partition connectivity from compiled metadata                       |
+| `profile_record_timers.py`         | Summarize FlexML/VART `record_timer` JSON dumps in milliseconds             |
 | `requirements.txt`                 | Python dependencies (`pip install --no-deps -r requirements.txt` in Docker) |
 
 ---
@@ -69,7 +70,7 @@ chmod -R a+w /path/to/cpu_subgraph
 cd /path/to/cpu_subgraph
 ```
 
-Load the latest docker image and launch it as explained in the Vitis AI User Guide for Versal AI Edge Series Gen 2.
+Load the latest docker image and launch it as explained in the [Vitis AI User Guide for Versal AI Edge Series Gen 2](https://vitisai.docs.amd.com/projects/gen2/en/latest/docs/setup_and_installation/docker-setup.html).
 
 When launching Docker for this tutorial, ensure the container uses host networking and bind mounts for the license directory and this tutorial directory (for example, mount this tutorial path to `/cpu_subgraph`).
 
@@ -164,7 +165,7 @@ The provided `vitisai_config.json` uses five passes to enable CPU subgraph parti
 4. `vaiml_connectivity` — stitches NPU and CPU tensor connections.
 5. `vaiml_create_cache` — compiles the NPU subgraph and writes the unified `.rai` cache for VART-ML.
 
-For details on each pass and advanced configuration options, see the [CPU Partition Compilation — Vitis AI Documentation](https://vitisai.docs.amd.com/projects/internal/en/vitis-ai-gen2-6.2-develop/docs/model_compilation/cpu_partition.html).
+For details on each pass and advanced configuration options, see the [CPU Partition Compilation — Vitis AI Documentation](https://vitisai.docs.amd.com/projects/gen2/en/latest/docs/model_compilation/cpu_partition.html).
 
 ### Run compilation
 
@@ -250,13 +251,13 @@ Batch size        : 1
 
   Outputs (1):
     [0] output
-         cpu: shape=[21600,7]  dtype=fp32  memory_layout=GENERIC(memory_layout_order=[0,1])  size=604800B
+         cpu: shape=[25200,7]  dtype=fp32  memory_layout=GENERIC(memory_layout_order=[0,1])  size=705600B
 ```
 
 Use this output to confirm:
 
 - Input tensor name is **`images`** — this must match the `ifms-config` entry in `app_config.json`.
-- Output shape is **`[21600, 7]`** — a fixed-capacity detection buffer with rows in **`[batch_id, x1, y1, x2, y2, class_id, confidence]`** format.
+- Output shape is **`[25200, 7]`** — a fixed-capacity detection buffer with rows in **`[batch_id, x1, y1, x2, y2, class_id, confidence]`** format.
   Valid rows are rows containing actual detections (not padded all-zero rows).
   Invalid rows are padded rows with all zeros, and they are ignored during postprocessing.
 - Only **`cpu`** tensor views are populated at both input and output boundaries (no `hw` view shown) — this indicates CPU subgraphs sit at both boundaries, so `input-tensor-type` and `output-tensor-type` must be set to `"CPU"` in `app_config.json`.
@@ -288,14 +289,14 @@ This step postprocesses the raw inference output: it filters valid detections fr
 
 ```bash
 python postprocess_bin_output.py \
-  --bin output_NPU/infer_out0-float32_21600x7_output.bin \
+  --bin output_NPU/infer_out0-float32_25200x7_output.bin \
   --image /etc/vai/models/yolox_m_int8/data/detections.jpg \
   --output output_cpusub.jpg
 ```
 
 > `output_NPU/` is the output directory set by `ofms-dir` in `app_config.json`. Use the same sample image path as Step 6, or substitute the path to your own image to annotate the original image.
 
-The raw inference output is a fixed tensor of shape `[21600, 7]` where each row represents one detection candidate:
+The raw inference output is a fixed tensor of shape `[25200, 7]` where each row represents one detection candidate:
 
 ```
 [batch_id, x1, y1, x2, y2, class_id, confidence]
