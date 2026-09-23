@@ -1,0 +1,36 @@
+{
+    "passes": [
+        {
+            "name": "init",
+            "plugin": "vaip-pass_init"
+        },
+        {
+            "name": "vaiml_partition",
+            "plugin": "vaip-pass_vaiml_partition",
+            "vaiml_config": {
+                "keep_outputs": true,
+                "device": "ve2-xc2ve3858",
+                "optimize_level": 2,
+                "fe_experiment": "edge-quantization-in-rt=1 enable-output-without-rt-support=1",
+                "experiment_features": [
+                    "SkipDequantizeRemoval"
+                ],
+                "logging_level": "info",
+                "threshold_gops_percent": 0,
+                "override_batch_size": true,
+                "dp_size": 1,
+                "tp_size": 1
+            }
+        }
+    ],
+    "target": "VAIML",
+    "targets": [
+        {
+            "name": "VAIML",
+            "pass": [
+                "init",
+                "vaiml_partition"
+            ]
+        }
+    ]
+}

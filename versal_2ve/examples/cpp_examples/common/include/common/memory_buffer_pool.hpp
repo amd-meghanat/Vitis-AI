@@ -1,0 +1,112 @@
+/*
+ * Copyright (C) 2026 Advanced Micro Devices, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software
+ * is furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+ * KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+ * EVENT SHALL "AMD" BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+ * OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. Except as contained in this notice, the name of the AMD shall
+ * not be used in advertising or otherwise to promote the sale, use or other
+ * dealings in this Software without prior written authorization from AMD.
+ */
+
+/**
+ * @file memory_buffer_pool.hpp
+ * @brief Thread-safe pool of reusable vart::Memory buffers for NPU I/O.
+ *
+ * Buffers are pre-allocated at construction time and recycled via
+ * acquire/release. The acquire call blocks (with timeout) when the
+ * pool is exhausted.
+ */
+
+#pragma once
+
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <stdexcept>
+
+#include <vart/vart_memory.hpp>
+
+/**
+ * @class MemoryBufferPool
+ * @brief Fixed-size pool of vart::Memory objects backed by XRT buffer objects.
+ *
+ * @par Lifetime contract
+ * Each shared_ptr from acquire_buffer() carries a custom deleter that captures
+ * shared pool State. The State outlives the pool object, so deleters never
+ * touch a destroyed pool instance.
+ *
+ * Required teardown order (callers that own the pool):
+ *   1. Stop pipeline consumers before producers (inference, postprocess,
+ *      preprocess, then file readers) so no further acquire_buffer() calls
+ *      are made and in-flight buffers can be released.
+ *   2. Release every outstanding shared_ptr (let worker threads exit, drop
+ *      queued holders, reset() any remaining shared_ptrs).
+ *   3. Destroy the pool object (typically when the owning component instance
+ *      is cleared).
+ *
+ * Destructor behaviour:
+ *   - Sets stopping_, wakes blocked acquirers, and waits up to 5s for
+ *     outstanding buffers to return.
+ *   - On timeout, logs the outstanding count, sets alive=false, and returns.
+ *   - Any shared_ptr still alive after that is destroyed by its deleter
+ *     without recycling (safe: no leak, no use-after-free).
+ */
+class MemoryBufferPool {
+ public:
+  /** @brief Type alias used by the generic acquire_tensors() template. */
+  using buffer_type = vart::Memory;
+
+  /**
+   * @brief Construct a pool of pre-allocated vart::Memory buffers.
+   * @param pool_size  Number of buffers to pre-allocate.
+   * @param type       XRT memory implementation type.
+   * @param buf_size   Size of each buffer in bytes.
+   * @param mbank_idx  DDR memory bank index.
+   * @param device     Shared pointer to the VART device.
+   */
+  MemoryBufferPool(size_t pool_size,
+                   vart::MemoryImplType type,
+                   size_t buf_size,
+                   uint8_t mbank_idx,
+                   std::shared_ptr<vart::Device> device,
+                   std::chrono::milliseconds timeout = std::chrono::milliseconds(20000));
+
+  /**
+   * @brief Destructor.
+   *
+   * Signals shutdown (blocked acquire_buffer() callers throw), waits up to
+   * 5 seconds for outstanding buffers to return, then sets alive=false.
+   * If the drain times out, an error is logged; remaining shared_ptr
+   * deleters destroy their buffers without recycling.
+   */
+  ~MemoryBufferPool();
+
+  /** @brief Acquire a buffer from the pool (blocks with timeout if exhausted). */
+  std::shared_ptr<vart::Memory> acquire_buffer();
+  /** @brief Get the number of currently available buffers. */
+  size_t get_available_count();
+
+  /** @brief Generic acquire interface for template compatibility. */
+  std::shared_ptr<buffer_type> acquire() { return acquire_buffer(); }
+
+ private:
+  struct State;
+
+  std::shared_ptr<State> state_;
+};
