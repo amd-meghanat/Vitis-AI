@@ -1,8 +1,8 @@
 DESCRIPTION = "reciepe for X+ML CPP applications"
 LICENSE = "Apache-2.0"
 
-SRC_URI = "git://github.com/amd/Vitis-AI.git;branch=main;protocol=https"
-SRCREV = "315e38f270c5b6819831b586ac5662f211ca709e"
+SRC_URI = "git://github.com/amd/Vitis-AI.git;branch=release/6.3;protocol=https"
+SRCREV = "a13d0e26612b5e211516d71f1975b994d91bac62"
 S = "${WORKDIR}/git/versal_2ve/examples/cpp_examples"
 LIC_FILES_CHKSUM = "file://${S}/LICENSE;md5=8ca1557542e93162af35eedb71a8e499"
 
