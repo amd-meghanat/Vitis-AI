@@ -1,4 +1,4 @@
-<img width="1891" height="838" alt="image" src="https://github.com/user-attachments/assets/1bad87b3-14a7-4940-a98c-a11fde3b7d74" /># VEK385 MIPI Streaming AI Reference Design
+# VEK385 MIPI Streaming AI Reference Design
 
 ## 1. Introduction
 
